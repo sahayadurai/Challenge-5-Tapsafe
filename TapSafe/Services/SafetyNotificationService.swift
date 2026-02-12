@@ -42,9 +42,9 @@ final class SafetyNotificationService: NSObject, ObservableObject {
         UNUserNotificationCenter.current().delegate = self
     }
     
-    /// Request notification permission including Critical Alert (requires entitlement from Apple).
+    /// Request notification permission. Use .criticalAlert in options only if Apple has granted the Critical Alerts capability.
     func requestAuthorization(completion: @escaping (Bool, Error?) -> Void) {
-        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .criticalAlert]
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge]
         UNUserNotificationCenter.current().requestAuthorization(options: options) { [weak self] granted, error in
             DispatchQueue.main.async {
                 if granted {
@@ -77,12 +77,10 @@ final class SafetyNotificationService: NSObject, ObservableObject {
         content.body = "Are you okay? Tap to confirm you're safe. (\(reason))"
         content.categoryIdentifier = SafetyNotificationCategory.checkIn
         
-        // Critical Alerts bypass Silent / Do Not Disturb (requires Apple entitlement).
+        // Use standard notification (respects Silent). For Critical Alerts, add the entitlement and use defaultCriticalSound(withAudioVolume: 1.0) + .critical.
+        content.sound = .default
         if #available(iOS 15.0, *) {
-            content.sound = UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
-            content.interruptionLevel = .critical
-        } else {
-            content.sound = .default
+            content.interruptionLevel = .timeSensitive
         }
         
         let request = UNNotificationRequest(

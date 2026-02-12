@@ -80,15 +80,13 @@ final class SafetyManager: ObservableObject {
         
         statusMessage = "No response — alerting emergency contact."
         
-        // Send a second Critical Alert to the user so they know we're escalating.
+        // Notify the user that we're escalating (standard notification; use Critical Alert if entitlement approved).
         let content = UNMutableNotificationContent()
         content.title = "TapSafe: Contacting Emergency Contact"
         content.body = "You didn’t respond. We’re sharing your location with \(contact?.name ?? "your emergency contact")."
+        content.sound = .default
         if #available(iOS 15.0, *) {
-            content.sound = UNNotificationSound.defaultCriticalSound(withAudioVolume: 1.0)
-            content.interruptionLevel = .critical
-        } else {
-            content.sound = .default
+            content.interruptionLevel = .timeSensitive
         }
         let request = UNNotificationRequest(identifier: "tapsafe-escalation-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
