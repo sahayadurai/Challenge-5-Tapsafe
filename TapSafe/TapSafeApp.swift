@@ -9,6 +9,10 @@ import SwiftUI
 
 @main
 struct TapSafeApp: App {
+    init() {
+        WatchConnectivityManager.shared.activate()
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
