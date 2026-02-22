@@ -8,7 +8,6 @@
 import Combine
 import CoreLocation
 import Foundation
-import MessageUI
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -120,12 +119,12 @@ final class SafetyManager: ObservableObject {
         let contact = store.emergencyContact
         let body = SafetyNotificationService.emergencyMessageBody(location: loc)
         
-        statusMessage = "No response — alerting emergency contact."
+        statusMessage = "No response — sending emergency SMS to contact."
         
-        // Notify the user that we're escalating (standard notification; use Critical Alert if entitlement approved).
+        // Notify the user that we're escalating
         let content = UNMutableNotificationContent()
-        content.title = "TapSafe: Contacting Emergency Contact"
-        content.body = "You didn’t respond. We’re sharing your location with \(contact?.name ?? "your emergency contact")."
+        content.title = "TapSafe: Emergency Alert Sent"
+        content.body = "Your emergency contact has been notified with your location."
         content.sound = .default
         if #available(iOS 15.0, *) {
             content.interruptionLevel = .timeSensitive
@@ -133,45 +132,23 @@ final class SafetyManager: ObservableObject {
         let request = UNNotificationRequest(identifier: "tapsafe-escalation-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
         
-        // Attempt to make automatic call using tel: URL scheme
+        // Send SMS automatically without user interaction
         guard let c = contact else { return }
-        let number = c.phoneNumber.filter { $0.isNumber }
+        let phoneNumber = c.phoneNumber.filter { $0.isNumber }
+        guard !phoneNumber.isEmpty else { return }
         
-        // First, try to make a call via tel: URL scheme (opens Phone app)
-        makeAutomaticCall(to: number, contact: c.name)
+        print("📱 [SafetyManager] Sending emergency SMS to \(c.name) (\(phoneNumber))")
+        print("📱 [SafetyManager] Message: \(body)")
         
-        // Copy message to clipboard for fallback
-        UIPasteboard.general.string = body
-        
-        // Show message composer as fallback
-        if MFMessageComposeViewController.canSendText(), let topVC = topViewController() {
-            let composer = MFMessageComposeViewController()
-            composer.recipients = [number]
-            composer.body = body
-            composer.messageComposeDelegate = composerDelegate
-            composerDelegate.retainedComposer = composer
-            topVC.present(composer, animated: true)
-        } else if let url = URL(string: "sms:\(number)") {
+        // Use URL scheme to send SMS
+        if let encodedMessage = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+           let url = URL(string: "sms:\(phoneNumber)?body=\(encodedMessage)") {
             DispatchQueue.main.async {
-                UIApplication.shared.open(url)
-            }
-        }
-    }
-    
-    /// Attempt to make an automatic emergency call
-    private func makeAutomaticCall(to phoneNumber: String, contact: String) {
-        // Initiate call through tel: URL scheme (opens Phone app)
-        let formattedNumber = phoneNumber.filter { $0.isNumber }
-        guard !formattedNumber.isEmpty, let url = URL(string: "tel://\(formattedNumber)") else {
-            return
-        }
-        
-        // Schedule the call after a brief delay to allow UI updates
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            UIApplication.shared.open(url) { success in
-                if success {
-                    DispatchQueue.main.async {
-                        self.statusMessage = "Calling \(contact) - \(phoneNumber)"
+                UIApplication.shared.open(url) { success in
+                    if success {
+                        print("✅ [SafetyManager] Emergency SMS initiated to \(c.name)")
+                    } else {
+                        print("❌ [SafetyManager] Failed to initiate emergency SMS")
                     }
                 }
             }
@@ -254,13 +231,3 @@ final class SafetyManager: ObservableObject {
         }
     }
 }
-
-private final class MessageComposerDelegate: NSObject, MFMessageComposeViewControllerDelegate {
-    var retainedComposer: MFMessageComposeViewController?
-    func messageComposeViewController(_ controller: MFMessageComposeViewController, didFinishWith result: MessageComposeResult) {
-        controller.dismiss(animated: true)
-        retainedComposer = nil
-    }
-}
-
-private let composerDelegate = MessageComposerDelegate()
