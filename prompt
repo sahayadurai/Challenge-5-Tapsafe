@@ -1,0 +1,9 @@
+this app is for saftey while walking in streets that:
+
+- sets a destination where we have to go
+- designate an emergency contact that the user will be called in case of emergency
+-once we press start walk it will pair with the apple watch and continuously monitor the heart rate and find if the heart rate exceeds a certain limit or if not detected will dial the emergency contact immediately from the iphone where the app is running.
+
+now i want to know if this project complies with this requirements.
+
+if not make necessary changes and also let me know what is the bpm threshold for the emergency contact is dialed when the heart rate is detected from the apple watch.

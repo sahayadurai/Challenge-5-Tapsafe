@@ -132,6 +132,52 @@ final class SafetyNotificationService: NSObject, ObservableObject {
         checkInSentAt = nil
     }
     
+    /// Send high-priority periodic check-in notification (used by fallback timer when watch unavailable)
+    /// - Parameters:
+    ///   - title: Notification title
+    ///   - body: Notification body
+    ///   - sound: Whether to play sound
+    ///   - haptic: Whether to trigger haptic feedback
+    func sendCheckInNotification(title: String, body: String, sound: Bool = true, haptic: Bool = true) {
+        print("🔔 [Notifications] Sending check-in notification: \(title)")
+        
+        // Trigger haptic feedback immediately
+        if haptic {
+            let feedback = UINotificationFeedbackGenerator()
+            feedback.notificationOccurred(.warning)
+        }
+        
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        
+        // Set badge (increments from current app badge)
+        content.badge = NSNumber(value: UIApplication.shared.applicationIconBadgeNumber + 1)
+        
+        // Add sound if requested
+        if sound {
+            content.sound = .default
+        }
+        
+        // Add vibration pattern via category
+        content.categoryIdentifier = SafetyNotificationCategory.checkIn
+        
+        // High priority so it appears on lock screen
+        content.interruptionLevel = .critical
+        
+        // Fire immediately
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ [Notifications] Failed to send check-in notification: \(error.localizedDescription)")
+            } else {
+                print("✅ [Notifications] Check-in notification sent successfully")
+            }
+        }
+    }
+    
     /// Build message body for emergency contact (GPS coordinates).
     static func emergencyMessageBody(location: CLLocation?) -> String {
         guard let loc = location else { return "TapSafe: I may need help. Please check on me." }

@@ -22,12 +22,17 @@ struct DestinationPickerView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Map(coordinateRegion: $region, annotationItems: annotationItems) { item in
-                    MapAnnotation(coordinate: item.coordinate) {
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.title)
-                            .foregroundColor(.red)
+                Map(position: .constant(.region(region))) {
+                    ForEach(annotationItems, id: \.id) { item in
+                        Annotation("", coordinate: item.coordinate) {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.title)
+                                .foregroundColor(.red)
+                        }
                     }
+                }
+                .onMapCameraChange { context in
+                    region = context.region
                 }
                 
                 Button("Set destination at map center") {

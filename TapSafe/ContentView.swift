@@ -7,7 +7,7 @@ struct ContentView: View {
     @State private var showingEmergencyContact = false
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 24) {
             Image(systemName: "hand.tap.fill")
                 .resizable()
                 .scaledToFit()
@@ -51,6 +51,53 @@ struct ContentView: View {
                     .cornerRadius(12)
                 }
             }
+            .padding(.horizontal, 24)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "heart.fill")
+                        .foregroundColor(.red)
+                    Text("Heart Rate Threshold")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text("\(Int(store.heartRateThreshold)) BPM")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.red)
+                }
+                Slider(value: $store.heartRateThreshold, in: 80...180, step: 5)
+                    .tint(.red)
+                Text("Alert when heart rate exceeds this threshold")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color.red.opacity(0.08))
+            .cornerRadius(12)
+            .padding(.horizontal, 24)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "bell.badge.fill")
+                        .foregroundColor(.orange)
+                    Text("Check-In Interval")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text("\(Int(store.checkInInterval)) min")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.orange)
+                }
+                Slider(value: $store.checkInInterval, in: 1...30, step: 1)
+                    .tint(.orange)
+                Text("Receive a check-in nudge if watch is undetected")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color.orange.opacity(0.08))
+            .cornerRadius(12)
             .padding(.horizontal, 24)
 
             Button("Start Walk") {

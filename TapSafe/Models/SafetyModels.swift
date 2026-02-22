@@ -51,6 +51,8 @@ final class SafetyStore: ObservableObject {
     private enum Keys {
         static let destination = "tapsafe.destination"
         static let emergencyContact = "tapsafe.emergencyContact"
+        static let heartRateThreshold = "tapsafe.heartRateThreshold"
+        static let checkInInterval = "tapsafe.checkInInterval"
     }
     
     @Published var destination: Destination? {
@@ -73,6 +75,18 @@ final class SafetyStore: ObservableObject {
         }
     }
     
+    @Published var heartRateThreshold: Double = 120 {
+        didSet {
+            defaults.set(heartRateThreshold, forKey: Keys.heartRateThreshold)
+        }
+    }
+    
+    @Published var checkInInterval: Double = 5 {
+        didSet {
+            defaults.set(checkInInterval, forKey: Keys.checkInInterval)
+        }
+    }
+    
     init() {
         if let data = defaults.data(forKey: Keys.destination),
            let d = try? JSONDecoder().decode(Destination.self, from: data) {
@@ -86,5 +100,7 @@ final class SafetyStore: ObservableObject {
         } else {
             emergencyContact = nil
         }
+        heartRateThreshold = defaults.double(forKey: Keys.heartRateThreshold) > 0 ? defaults.double(forKey: Keys.heartRateThreshold) : 120
+        checkInInterval = defaults.double(forKey: Keys.checkInInterval) > 0 ? defaults.double(forKey: Keys.checkInInterval) : 5
     }
 }
