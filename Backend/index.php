@@ -25,10 +25,28 @@ function validateToken($token) {
     return in_array($token, VALID_TOKENS);
 }
 
-// Helper function to get CSV file path
+// Helper function to get CSV file path (case-insensitive)
 function getUserCSVPath($user) {
     $sanitized = preg_replace('/[^a-zA-Z0-9_-]/', '', $user);
-    return DATA_DIR . '/' . $sanitized . '.csv';
+    $expectedPath = DATA_DIR . '/' . $sanitized . '.csv';
+    
+    // Check exact match first
+    if (file_exists($expectedPath)) {
+        return $expectedPath;
+    }
+    
+    // Check case-insensitive match
+    if (is_dir(DATA_DIR)) {
+        $files = scandir(DATA_DIR);
+        foreach ($files as $file) {
+            if (strtolower($file) === strtolower($sanitized . '.csv')) {
+                return DATA_DIR . '/' . $file;
+            }
+        }
+    }
+    
+    // Return expected path if no file found (will be created)
+    return $expectedPath;
 }
 
 // Helper function to log location
@@ -48,7 +66,7 @@ function logLocation($user, $lat, $lon) {
     return true;
 }
 
-// Helper function to get user history
+// Helper function to get user history (case-insensitive)
 function getUserHistory($user) {
     $csvPath = getUserCSVPath($user);
     $history = [];
@@ -57,13 +75,15 @@ function getUserHistory($user) {
         $lines = file($csvPath, FILE_IGNORE_NEW_LINES);
         foreach (array_slice($lines, 1) as $line) { // Skip header
             if (trim($line)) {
-                list($timestamp, $lat, $lon) = explode(',', $line);
-                $history[] = [
-                    'timestamp' => $timestamp,
-                    'latitude' => $lat,
-                    'longitude' => $lon,
-                    'mapsUrl' => "https://maps.apple.com/?q=$lat,$lon"
-                ];
+                $parts = explode(',', $line);
+                if (count($parts) >= 3) {
+                    $history[] = [
+                        'timestamp' => $parts[0],
+                        'latitude' => trim($parts[1]),
+                        'longitude' => trim($parts[2]),
+                        'mapsUrl' => "https://maps.apple.com/?q=" . trim($parts[1]) . "," . trim($parts[2])
+                    ];
+                }
             }
         }
     }
