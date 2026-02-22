@@ -2,10 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>TapSafe uses Face ID to authenticate your check-in responses and confirm you're safe.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TapSafe uses your location to monitor your route and detect if you stop for too long outside your destination.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TapSafe needs background location so we can send a check-in if you’re stationary for over 2 minutes during your walk.</string>
+	<string>TapSafe needs background location so we can send a check-in if you're stationary for over 2 minutes during your walk.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

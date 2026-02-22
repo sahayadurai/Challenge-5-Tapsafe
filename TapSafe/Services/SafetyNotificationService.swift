@@ -151,8 +151,8 @@ final class SafetyNotificationService: NSObject, ObservableObject {
         content.title = title
         content.body = body
         
-        // Set badge (increments from current app badge)
-        content.badge = NSNumber(value: UIApplication.shared.applicationIconBadgeNumber + 1)
+        // Set badge using modern API
+        content.badge = NSNumber(value: 1)
         
         // Add sound if requested
         if sound {

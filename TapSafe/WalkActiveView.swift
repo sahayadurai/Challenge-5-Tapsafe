@@ -108,7 +108,14 @@ struct WalkActiveView: View {
         .onDisappear {
             safetyManager.endWalk()
         }
-        // Show authentication modal when periodic check-in is triggered
+        // Show new ringer/flash alert when HRM is deactivated
+        .overlay(alignment: .center) {
+            if safetyManager.showEmergencyCheckInAlert {
+                CheckInAlertView(safetyManager: safetyManager)
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
+            }
+        }
+        // Show authentication modal for traditional check-ins
         .overlay(alignment: .center) {
             if safetyManager.showCheckInAlert {
                 CheckInAuthenticationView(safetyManager: safetyManager)

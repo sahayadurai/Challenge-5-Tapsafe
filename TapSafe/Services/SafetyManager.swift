@@ -18,7 +18,8 @@ final class SafetyManager: ObservableObject {
     @Published var statusMessage: String = "Starting your safe walk..."
     @Published var isWalkActive: Bool = false
     @Published var currentHeartRate: Double?
-    @Published var showCheckInAlert: Bool = false
+    @Published var showCheckInAlert: Bool = false          // For CheckInAuthenticationView (original)
+    @Published var showEmergencyCheckInAlert: Bool = false // For CheckInAlertView (new ringer/flash version)
     @Published var failedCheckIns: Int = 0
     
     private let locationManager = LocationManager()
@@ -113,7 +114,7 @@ final class SafetyManager: ObservableObject {
         statusMessage = "You’re safe. We’ll keep monitoring."
     }
     
-    private func escalateToEmergencyContact(location: CLLocation?) {
+    func escalateToEmergencyContact(location: CLLocation?) {
         notificationService.lastKnownLocation = location ?? locationManager.lastLocation
         let loc = notificationService.lastKnownLocation
         let contact = store.emergencyContact
@@ -217,30 +218,15 @@ final class SafetyManager: ObservableObject {
     /// Triggered by periodic timer when watch is unavailable
     /// Shows check-in prompt with notification and vibration
     private func triggerPeriodicCheckIn() {
-        print("🔔 [SafetyManager] Periodic check-in triggered - failed attempts: \(failedCheckIns)")
+        print("🔔 [SafetyManager] Periodic check-in triggered - HRM deactivated")
         
+        // Show the new CheckInAlertView with ringer and flash
         DispatchQueue.main.async { [weak self] in
-            self?.showCheckInAlert = true
+            self?.showEmergencyCheckInAlert = true
         }
         
-        // Send high-priority check-in notification with sound and vibration
-        notificationService.sendCheckInNotification(
-            title: "Check-In Required",
-            body: "Are you safe? Confirm your status now.",
-            sound: true,
-            haptic: true
-        )
-        
-        // If this is the first failed check-in (second prompt), schedule escalation after 60 seconds
-        if failedCheckIns >= 1 {
-            print("⚠️ [SafetyManager] Second check-in attempt - escalating in 60 seconds if no response")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 60.0) { [weak self] in
-                // Only escalate if still no response (showCheckInAlert still true)
-                if self?.showCheckInAlert == true {
-                    self?.escalateToEmergencyContact(location: self?.locationManager.lastLocation)
-                }
-            }
-        }
+        // The CheckInAlertView handles its own ringer/flash and 60-second timer
+        // If authentication fails after 60 seconds, CheckInAlertView calls escalateToEmergencyContact
     }
     
     /// Called when user responds to check-in successfully (passes Face ID/Passcode)
@@ -250,6 +236,7 @@ final class SafetyManager: ObservableObject {
         
         DispatchQueue.main.async { [weak self] in
             self?.showCheckInAlert = false
+            self?.showEmergencyCheckInAlert = false  // Dismiss emergency alert if shown
             self?.failedCheckIns = 0  // Reset counter on successful check-in
         }
         
