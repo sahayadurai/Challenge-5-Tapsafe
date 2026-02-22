@@ -10,6 +10,7 @@
 import AVFoundation
 import LocalAuthentication
 import SwiftUI
+import UIKit
 
 struct CheckInAlertView: View {
     @ObservedObject var safetyManager: SafetyManager
@@ -19,7 +20,8 @@ struct CheckInAlertView: View {
     @State private var remainingTime: Int = 60
     @State private var timer: Timer?
     @State private var flashOpacity: Double = 1.0
-    @State private var audioPlayer: AVAudioPlayer?
+    @State private var flashTimer: Timer?
+    @State private var ringerTimer: Timer?
     @State private var okTapped: Bool = false
     
     var body: some View {
@@ -218,45 +220,55 @@ struct CheckInAlertView: View {
     // MARK: - Alert Effects
     
     private func startRinger() {
-        // Play system alarm/alert sound repeatedly
-        DispatchQueue.global().async {
+        // Setup audio session for loud ringer
+        let audioSession = AVAudioSession.sharedInstance()
+        try? audioSession.setCategory(.playback, mode: .default, options: [.duckOthers, .defaultToSpeaker])
+        try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        
+        // Start ringer timer - play sound every 0.8 seconds
+        ringerTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [self] _ in
             playAlarmSound()
         }
+        
+        // Play first sound immediately
+        playAlarmSound()
     }
     
     private func stopRinger() {
-        audioPlayer?.stop()
-        audioPlayer = nil
+        ringerTimer?.invalidate()
+        ringerTimer = nil
+        
+        // Deactivate audio session
+        let audioSession = AVAudioSession.sharedInstance()
+        try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     private func playAlarmSound() {
-        // Use system sound ID 1104 (alarm/alert)
-        let soundID: SystemSoundID = 1104
-        AudioServicesPlayAlertSoundWithCompletion(soundID) { [self] in
-            // Repeat every 0.5 seconds while alert is active
-            if remainingTime > 0 && !okTapped {
-                DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
-                    self.playAlarmSound()
-                }
-            }
-        }
+        // Use high-priority alarm sound (1005 = Alarm)
+        let soundID: SystemSoundID = 1005
+        AudioServicesPlayAlertSound(soundID)
     }
     
     private func playAudioFeedback() {
-        // Play "OK" confirmation sound
-        AudioServicesPlaySystemSound(1057)  // Positive feedback sound
+        // Play "OK" confirmation sound (1057 = Chime Up)
+        AudioServicesPlaySystemSound(1057)
     }
     
     private func startFlashing() {
-        Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                flashOpacity = (flashOpacity == 1.0) ? 0.3 : 1.0
+        // Clear any existing timer
+        flashTimer?.invalidate()
+        
+        // Start flashing every 300ms
+        flashTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [self] _ in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                flashOpacity = (flashOpacity == 1.0) ? 0.2 : 1.0
             }
         }
     }
     
     private func stopFlashing() {
-        // Timer cleanup handled by SwiftUI
+        flashTimer?.invalidate()
+        flashTimer = nil
     }
     
     // MARK: - Timer
