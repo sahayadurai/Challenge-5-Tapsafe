@@ -116,15 +116,13 @@ final class SafetyManager: ObservableObject {
     func escalateToEmergencyContact(location: CLLocation?) {
         notificationService.lastKnownLocation = location ?? locationManager.lastLocation
         let loc = notificationService.lastKnownLocation
-        let contact = store.emergencyContact
-        let body = SafetyNotificationService.emergencyMessageBody(location: loc)
         
-        statusMessage = "No response — sending emergency SMS to contact."
+        statusMessage = "No response — sending location to emergency backend."
         
         // Notify the user that we're escalating
         let content = UNMutableNotificationContent()
         content.title = "TapSafe: Emergency Alert Sent"
-        content.body = "Your emergency contact has been notified with your location."
+        content.body = "Your location has been sent to the emergency backend."
         content.sound = .default
         if #available(iOS 15.0, *) {
             content.interruptionLevel = .timeSensitive
@@ -132,32 +130,74 @@ final class SafetyManager: ObservableObject {
         let request = UNNotificationRequest(identifier: "tapsafe-escalation-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
         
-        // Send SMS automatically - open Messages app with pre-filled SMS
-        guard let c = contact else { return }
-        let phoneNumber = c.phoneNumber.filter { $0.isNumber }
-        guard !phoneNumber.isEmpty else { return }
+        // Send location to backend
+        sendLocationToBackend(location: loc)
+    }
+    
+    /// Send emergency location to PHP backend endpoint
+    private func sendLocationToBackend(location: CLLocation?) {
+        guard let loc = location else {
+            print("❌ [SafetyManager] No location available to send")
+            return
+        }
         
-        print("📱 [SafetyManager] Sending emergency SMS to \(c.name) (\(phoneNumber))")
-        print("📱 [SafetyManager] Message: \(body)")
+        let lat = loc.coordinate.latitude
+        let lon = loc.coordinate.longitude
         
-        // Open Messages app with pre-filled SMS (this will be auto-sent)
-        // Note: iOS requires user to confirm sending, but we can trigger it programmatically
-        if let encodedMessage = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-           let url = URL(string: "sms:\(phoneNumber)?body=\(encodedMessage)") {
-            DispatchQueue.main.async {
-                UIApplication.shared.open(url) { success in
-                    if success {
-                        print("✅ [SafetyManager] Emergency SMS app opened for \(c.name)")
-                        
-                        // Note: iOS doesn't support silent SMS sending. Messages app will open.
-                        // User needs to tap Send, but app is ready with pre-filled message.
-                        // For production, consider using a third-party SMS API gateway service.
-                    } else {
-                        print("❌ [SafetyManager] Failed to open Messages app")
-                    }
+        // Configuration - UPDATE THESE VALUES
+        let backendURL = "https://ronvoy.com/index.php" // Your server URL
+        let userName = "Sahaya" // Your app name or user identifier
+        let token = "1234" // Your valid token from backend
+        
+        let coordinates = "\(lat),\(lon)"
+        
+        print("📱 [SafetyManager] Emergency location submission triggered")
+        print("📱 [SafetyManager] Coordinates: \(coordinates)")
+        print("📱 [SafetyManager] User: \(userName)")
+        
+        // Build URL with parameters
+        var components = URLComponents(string: backendURL)
+        components?.queryItems = [
+            URLQueryItem(name: "location", value: coordinates),
+            URLQueryItem(name: "user", value: userName),
+            URLQueryItem(name: "token", value: token)
+        ]
+        
+        guard let url = components?.url else {
+            print("❌ [SafetyManager] Failed to build backend URL")
+            return
+        }
+        
+        let trackingURL = url
+        print("📱 [SafetyManager] Opening tracking link in Safari:")
+        print("📱 [SafetyManager] \(trackingURL.absoluteString)")
+        
+        // Open the tracking URL in Safari (will send location + display map)
+        DispatchQueue.main.async {
+            UIApplication.shared.open(trackingURL, options: [:]) { success in
+                if success {
+                    print("✅ [SafetyManager] Safari opened successfully with tracking URL")
+                } else {
+                    print("❌ [SafetyManager] Failed to open Safari with tracking URL")
                 }
             }
         }
+        
+        // Also send silent GET request to ensure backend receives location
+        var request = URLRequest(url: trackingURL)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        request.setValue("TapSafe-iOS/1.0", forHTTPHeaderField: "User-Agent")
+        
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("❌ [SafetyManager] Background request failed: \(error.localizedDescription)")
+            } else if let httpResponse = response as? HTTPURLResponse {
+                print("✅ [SafetyManager] Background request status: \(httpResponse.statusCode)")
+            }
+        }
+        
+        task.resume()
     }
     
     private func topViewController() -> UIViewController? {
