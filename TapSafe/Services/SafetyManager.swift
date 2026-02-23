@@ -151,7 +151,7 @@ final class SafetyManager: ObservableObject {
         
         let coordinates = "\(lat),\(lon)"
         
-        print("📱 [SafetyManager] Emergency location submission triggered")
+        print("📱 [SafetyManager] Sending location to backend: \(backendURL)")
         print("📱 [SafetyManager] Coordinates: \(coordinates)")
         print("📱 [SafetyManager] User: \(userName)")
         
@@ -168,36 +168,44 @@ final class SafetyManager: ObservableObject {
             return
         }
         
-        let trackingURL = url
-        print("📱 [SafetyManager] Opening tracking link in Safari:")
-        print("📱 [SafetyManager] \(trackingURL.absoluteString)")
+        print("📱 [SafetyManager] Full URL: \(url.absoluteString)")
         
-        // Open the tracking URL in Safari (will send location + display map)
-        DispatchQueue.main.async {
-            UIApplication.shared.open(trackingURL, options: [:]) { success in
-                if success {
-                    print("✅ [SafetyManager] Safari opened successfully with tracking URL")
-                } else {
-                    print("❌ [SafetyManager] Failed to open Safari with tracking URL")
-                }
-            }
-        }
-        
-        // Also send silent GET request to ensure backend receives location
-        var request = URLRequest(url: trackingURL)
+        // Send GET request to backend
+        var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.timeoutInterval = 10
+        request.timeoutInterval = 30
         request.setValue("TapSafe-iOS/1.0", forHTTPHeaderField: "User-Agent")
+        
+        print("📱 [SafetyManager] Making GET request...")
         
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                print("❌ [SafetyManager] Background request failed: \(error.localizedDescription)")
-            } else if let httpResponse = response as? HTTPURLResponse {
-                print("✅ [SafetyManager] Background request status: \(httpResponse.statusCode)")
+                print("❌ [SafetyManager] Backend request failed: \(error.localizedDescription)")
+                print("❌ [SafetyManager] Error code: \((error as NSError).code)")
+                print("❌ [SafetyManager] Error domain: \((error as NSError).domain)")
+                return
+            }
+            
+            print("📱 [SafetyManager] Got response from backend")
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("📱 [SafetyManager] Status code: \(httpResponse.statusCode)")
+                if httpResponse.statusCode == 200 {
+                    print("✅ [SafetyManager] Location successfully sent to backend")
+                    print("📍 [SafetyManager] View tracking: https://ronvoy.com/index.php?user=\(userName)&token=\(token)")
+                } else {
+                    print("❌ [SafetyManager] Backend returned status code: \(httpResponse.statusCode)")
+                }
+            }
+            
+            if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                print("📝 [SafetyManager] Backend response: \(responseString.prefix(500))")
             }
         }
         
+        print("📱 [SafetyManager] Task created, calling resume()")
         task.resume()
+        print("📱 [SafetyManager] Task resumed")
     }
     
     private func topViewController() -> UIViewController? {
