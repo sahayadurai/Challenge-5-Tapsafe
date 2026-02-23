@@ -29,8 +29,14 @@ final class SafetyManager: ObservableObject {
     /// Timer for periodic check-ins when watch is undetected
     private var checkInTimer: Timer?
     
+    /// Timer for continuous location tracking during emergency
+    private var continuousLocationTimer: Timer?
+    
     /// Whether watch connectivity has been detected during this walk
     private var watchDetected: Bool = false
+    
+    /// Last known location for continuous tracking
+    private var lastLocationForTracking: CLLocation?
     
     init(store: SafetyStore) {
         self.store = store
@@ -117,12 +123,12 @@ final class SafetyManager: ObservableObject {
         notificationService.lastKnownLocation = location ?? locationManager.lastLocation
         let loc = notificationService.lastKnownLocation
         
-        statusMessage = "No response — sending location to emergency backend."
+        statusMessage = "No response — sending location to emergency backend continuously."
         
         // Notify the user that we're escalating
         let content = UNMutableNotificationContent()
         content.title = "TapSafe: Emergency Alert Sent"
-        content.body = "Your location has been sent to the emergency backend."
+        content.body = "Your location has been sent to the emergency backend. Tracking every 30 seconds."
         content.sound = .default
         if #available(iOS 15.0, *) {
             content.interruptionLevel = .timeSensitive
@@ -130,8 +136,14 @@ final class SafetyManager: ObservableObject {
         let request = UNNotificationRequest(identifier: "tapsafe-escalation-\(UUID().uuidString)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
         
-        // Send location to backend
+        // Store location and start continuous tracking
+        lastLocationForTracking = loc
+        
+        // Send initial location
         sendLocationToBackend(location: loc)
+        
+        // Start continuous location tracking every 30 seconds
+        startContinuousLocationTracking()
     }
     
     /// Send emergency location to PHP backend endpoint
@@ -264,6 +276,9 @@ final class SafetyManager: ObservableObject {
     func completeCheckIn() {
         print("✅ [SafetyManager] Check-in completed successfully - resetting timer")
         
+        // Stop continuous location tracking
+        stopContinuousLocationTracking()
+        
         DispatchQueue.main.async { [weak self] in
             self?.showCheckInAlert = false
             self?.showEmergencyCheckInAlert = false  // Dismiss emergency alert if shown
@@ -281,6 +296,43 @@ final class SafetyManager: ObservableObject {
         
         DispatchQueue.main.async { [weak self] in
             self?.failedCheckIns += 1
+        }
+    }
+    
+    // MARK: - Continuous Location Tracking (Emergency Mode)
+    
+    /// Starts continuous location tracking every 30 seconds
+    /// Sends periodic location updates to backend until user responds
+    private func startContinuousLocationTracking() {
+        stopContinuousLocationTracking()  // Clear any existing timer
+        
+        print("🔴 [SafetyManager] Starting continuous location tracking - every 30 seconds")
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.continuousLocationTimer = Timer.scheduledTimer(withTimeInterval: .0, repeats: true) { [weak self] _ in
+                self?.sendPeriodicLocationUpdate()
+            }
+        }
+    }
+    
+    /// Stops continuous location tracking
+    private func stopContinuousLocationTracking() {
+        if continuousLocationTimer != nil {
+            print("🔴 [SafetyManager] Stopping continuous location tracking")
+            continuousLocationTimer?.invalidate()
+            continuousLocationTimer = nil
+        }
+    }
+    
+    /// Sends periodic location update to backend
+    private func sendPeriodicLocationUpdate() {
+        let currentLocation = lastLocationForTracking ?? locationManager.lastLocation
+        
+        if let loc = currentLocation {
+            print("🔴 [SafetyManager] Sending periodic location update")
+            sendLocationToBackend(location: loc)
+        } else {
+            print("⚠️ [SafetyManager] No location available for periodic update")
         }
     }
 }
