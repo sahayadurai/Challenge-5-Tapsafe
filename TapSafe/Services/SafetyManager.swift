@@ -309,7 +309,7 @@ final class SafetyManager: ObservableObject {
         print("🔴 [SafetyManager] Starting continuous location tracking - every 30 seconds")
         
         DispatchQueue.main.async { [weak self] in
-            self?.continuousLocationTimer = Timer.scheduledTimer(withTimeInterval: .0, repeats: true) { [weak self] _ in
+            self?.continuousLocationTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
                 self?.sendPeriodicLocationUpdate()
             }
         }
